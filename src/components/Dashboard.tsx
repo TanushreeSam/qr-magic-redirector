@@ -22,6 +22,22 @@ const Dashboard = () => {
   const updateProfileOptions = (options: ProfileOption[]) => {
     setProfileOptions(options);
     localStorage.setItem('profileOptions', JSON.stringify(options));
+    
+    // Store QR mapping for cross-device access
+    if (user?.qrId) {
+      const activeOption = options.find(option => option.isActive);
+      const qrMappings = JSON.parse(localStorage.getItem('qrMappings') || '{}');
+      
+      if (activeOption) {
+        qrMappings[user.qrId] = activeOption;
+        console.log('Dashboard: Storing QR mapping:', user.qrId, activeOption);
+      } else {
+        delete qrMappings[user.qrId];
+        console.log('Dashboard: Removing QR mapping for:', user.qrId);
+      }
+      
+      localStorage.setItem('qrMappings', JSON.stringify(qrMappings));
+    }
   };
 
   const activeOption = profileOptions.find(option => option.isActive);

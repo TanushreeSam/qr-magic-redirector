@@ -15,27 +15,40 @@ const RedirectPage = () => {
     
     const checkForRedirect = () => {
       try {
-        // For demo purposes, we'll use a more comprehensive localStorage approach
-        // In production, this would be a backend API call
+        // For demo purposes, we'll use localStorage to store QR mappings
+        // In production, this would be a backend API call that maps QR IDs to active profiles
         
-        // Get all stored user data
-        const allStorageKeys = Object.keys(localStorage);
-        console.log('RedirectPage: All localStorage keys:', allStorageKeys);
-        
+        // Check if there's a mapping of QR IDs to profiles
+        const qrMappings = localStorage.getItem('qrMappings');
         let foundActiveOption = null;
         
-        // Look through all localStorage entries for profile options
-        for (const key of allStorageKeys) {
-          if (key === 'profileOptions') {
+        if (qrMappings) {
+          try {
+            const mappings = JSON.parse(qrMappings);
+            console.log('RedirectPage: Found QR mappings:', mappings);
+            
+            // Look for this specific QR ID in the mappings
+            if (mappings[qrId!]) {
+              foundActiveOption = mappings[qrId!];
+              console.log('RedirectPage: Found mapped profile for QR ID:', foundActiveOption);
+            }
+          } catch (parseError) {
+            console.error('RedirectPage: Error parsing QR mappings:', parseError);
+          }
+        }
+        
+        // Fallback: check the general profile options (for backward compatibility)
+        if (!foundActiveOption) {
+          const savedProfiles = localStorage.getItem('profileOptions');
+          if (savedProfiles) {
             try {
-              const profiles: ProfileOption[] = JSON.parse(localStorage.getItem(key) || '[]');
+              const profiles: ProfileOption[] = JSON.parse(savedProfiles);
               console.log('RedirectPage: Found profiles:', profiles);
               
               const active = profiles.find(profile => profile.isActive);
               if (active) {
                 console.log('RedirectPage: Found active profile:', active);
                 foundActiveOption = active;
-                break;
               }
             } catch (parseError) {
               console.error('RedirectPage: Error parsing profiles:', parseError);
@@ -43,32 +56,20 @@ const RedirectPage = () => {
           }
         }
         
-        // Also check if there's a user in localStorage that matches this QR ID
-        const savedUser = localStorage.getItem('user');
-        if (savedUser) {
-          try {
-            const user = JSON.parse(savedUser);
-            console.log('RedirectPage: Found user:', user);
-            console.log('RedirectPage: User QR ID:', user.qrId, 'Current QR ID:', qrId);
-            
-            if (user.qrId === qrId && foundActiveOption) {
-              console.log('RedirectPage: QR ID matches user, redirecting to:', foundActiveOption);
-              setActiveOption(foundActiveOption);
-              
-              // Redirect after showing the option briefly
-              setTimeout(() => {
-                const url = formatRedirectUrl(foundActiveOption.type, foundActiveOption.value);
-                console.log('RedirectPage: Redirecting to URL:', url);
-                window.location.href = url;
-              }, 2000);
-              return;
-            }
-          } catch (userParseError) {
-            console.error('RedirectPage: Error parsing user:', userParseError);
-          }
+        if (foundActiveOption) {
+          console.log('RedirectPage: Redirecting to:', foundActiveOption);
+          setActiveOption(foundActiveOption);
+          
+          // Redirect after showing the option briefly
+          setTimeout(() => {
+            const url = formatRedirectUrl(foundActiveOption.type, foundActiveOption.value);
+            console.log('RedirectPage: Redirecting to URL:', url);
+            window.location.href = url;
+          }, 2000);
+          return;
         }
         
-        console.log('RedirectPage: No active profile found, showing inactive message');
+        console.log('RedirectPage: No active profile found for QR ID:', qrId);
         setIsRedirecting(false);
         
       } catch (error) {
