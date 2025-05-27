@@ -1,6 +1,6 @@
 
 import React, { useEffect, useRef } from 'react';
-import QRCode from 'qrcode';
+import * as QRCode from 'qrcode';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download, Copy } from 'lucide-react';
