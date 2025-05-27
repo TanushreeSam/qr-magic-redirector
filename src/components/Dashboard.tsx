@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -6,6 +5,12 @@ import { ProfileOption } from '@/types/profile';
 import ProfileManager from './ProfileManager';
 import QRCodeDisplay from './QRCodeDisplay';
 import { LogOut, User, QrCode } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -13,89 +18,82 @@ const Dashboard = () => {
 
   useEffect(() => {
     if (user?.id) {
-      // Load profile options specific to this user
-      const userProfileKey = `profileOptions_${user.id}`;
-      const saved = localStorage.getItem(userProfileKey);
-      console.log('Dashboard: Loading profile options for user:', user.id, 'found:', saved);
-      if (saved) {
-        const parsedOptions = JSON.parse(saved);
-        setProfileOptions(parsedOptions);
-        console.log('Dashboard: Loaded profile options:', parsedOptions);
-        
-        // Ensure the QR mapping is set up for existing active option
-        const activeOption = parsedOptions.find((option: ProfileOption) => option.isActive);
-        if (activeOption && user.qrId) {
-          storeQRMapping(user.qrId, activeOption);
-        }
-      }
+      loadProfileOptions();
     }
   }, [user]);
 
-  const storeQRMapping = (qrId: string, activeOption: ProfileOption) => {
-    console.log('Dashboard: Storing QR mapping for QR ID:', qrId, 'with active option:', activeOption);
-    
-    // Store using the clean QR ID (without qr_ prefix for global access)
-    const cleanQrId = qrId.replace(/^qr_/, '');
-    const globalKey = `qr_${cleanQrId}`;
-    
-    localStorage.setItem(globalKey, JSON.stringify(activeOption));
-    console.log('Dashboard: Stored global mapping with key:', globalKey, 'value:', activeOption);
-    
-    // Also store in qrMappings object for backup
-    let qrMappings = {};
+  const loadProfileOptions = async () => {
     try {
-      const existingMappings = localStorage.getItem('qrMappings');
-      if (existingMappings) {
-        qrMappings = JSON.parse(existingMappings);
+      const { data, error } = await supabase
+        .from('qr_mappings')
+        .select('*')
+        .eq('qr_id', user.qrId.replace(/^qr_/, ''));
+
+      if (error) {
+        console.error('Dashboard: Error loading profile options:', error);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        const options: ProfileOption[] = data.map(mapping => ({
+          id: mapping.id,
+          type: mapping.type,
+          label: mapping.label,
+          value: mapping.value,
+          isActive: true
+        }));
+        setProfileOptions(options);
+        console.log('Dashboard: Loaded profile options:', options);
       }
     } catch (error) {
-      console.error('Dashboard: Error parsing existing QR mappings:', error);
-      qrMappings = {};
+      console.error('Dashboard: Error in loadProfileOptions:', error);
     }
-    
-    qrMappings[cleanQrId] = activeOption;
-    localStorage.setItem('qrMappings', JSON.stringify(qrMappings));
-    console.log('Dashboard: Updated qrMappings:', qrMappings);
   };
 
-  const updateProfileOptions = (options: ProfileOption[]) => {
-    console.log('Dashboard: Updating profile options:', options);
-    setProfileOptions(options);
-    
-    if (user?.id) {
-      // Store profile options specific to this user
-      const userProfileKey = `profileOptions_${user.id}`;
-      localStorage.setItem(userProfileKey, JSON.stringify(options));
-      console.log('Dashboard: Stored profile options for user:', user.id);
+  const updateProfileOptions = async (options: ProfileOption[]) => {
+    try {
+      console.log('Dashboard: Updating profile options:', options);
       
-      // Store QR mapping for cross-device access
-      if (user.qrId) {
-        const activeOption = options.find(option => option.isActive);
-        
-        if (activeOption) {
-          storeQRMapping(user.qrId, activeOption);
-        } else {
-          // Remove mappings if no active option
-          const cleanQrId = user.qrId.replace(/^qr_/, '');
-          const globalKey = `qr_${cleanQrId}`;
-          localStorage.removeItem(globalKey);
-          console.log('Dashboard: Removed global mapping:', globalKey);
-          
-          let qrMappings = {};
-          try {
-            const existingMappings = localStorage.getItem('qrMappings');
-            if (existingMappings) {
-              qrMappings = JSON.parse(existingMappings);
-            }
-          } catch (error) {
-            console.error('Dashboard: Error parsing existing QR mappings:', error);
-          }
-          
-          delete qrMappings[cleanQrId];
-          localStorage.setItem('qrMappings', JSON.stringify(qrMappings));
-          console.log('Dashboard: Removed from qrMappings:', cleanQrId);
+      if (!user?.qrId) {
+        console.error('Dashboard: No QR ID available');
+        return;
+      }
+
+      const cleanQrId = user.qrId.replace(/^qr_/, '');
+      
+      // First, remove existing mapping
+      const { error: deleteError } = await supabase
+        .from('qr_mappings')
+        .delete()
+        .eq('qr_id', cleanQrId);
+
+      if (deleteError) {
+        console.error('Dashboard: Error deleting existing mapping:', deleteError);
+        return;
+      }
+
+      // Then, insert the active option if it exists
+      const activeOption = options.find(option => option.isActive);
+      if (activeOption) {
+        const { error: insertError } = await supabase
+          .from('qr_mappings')
+          .insert({
+            qr_id: cleanQrId,
+            type: activeOption.type,
+            label: activeOption.label,
+            value: activeOption.value
+          });
+
+        if (insertError) {
+          console.error('Dashboard: Error inserting new mapping:', insertError);
+          return;
         }
       }
+
+      setProfileOptions(options);
+      
+    } catch (error) {
+      console.error('Dashboard: Error in updateProfileOptions:', error);
     }
   };
 
