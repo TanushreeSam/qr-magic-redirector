@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { User } from '@/types/profile';
 
@@ -28,11 +27,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (email: string, password: string): Promise<boolean> => {
     // Simple demo authentication - in real app, this would be handled by backend
     if (password.length >= 6) {
-      const newUser: User = {
-        id: Date.now().toString(),
-        email,
-        qrId: `qr_${Date.now()}`
-      };
+      // Check if user already exists
+      const existingUserKey = `user_${email}`;
+      const existingUser = localStorage.getItem(existingUserKey);
+      
+      let newUser: User;
+      if (existingUser) {
+        // Use existing user data
+        newUser = JSON.parse(existingUser);
+        console.log('AuthContext: Login - Found existing user:', newUser);
+      } else {
+        // Create new user
+        newUser = {
+          id: Date.now().toString(),
+          email,
+          qrId: `qr_${Date.now()}`
+        };
+        localStorage.setItem(existingUserKey, JSON.stringify(newUser));
+        console.log('AuthContext: Login - Created new user:', newUser);
+      }
+      
       setUser(newUser);
       localStorage.setItem('user', JSON.stringify(newUser));
       return true;
@@ -48,8 +62,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         email,
         qrId: `qr_${Date.now()}`
       };
+      
+      // Store user data permanently
+      const userKey = `user_${email}`;
+      localStorage.setItem(userKey, JSON.stringify(newUser));
+      
       setUser(newUser);
       localStorage.setItem('user', JSON.stringify(newUser));
+      console.log('AuthContext: Signup - Created user:', newUser);
       return true;
     }
     return false;
@@ -58,7 +78,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = () => {
     setUser(null);
     localStorage.removeItem('user');
-    localStorage.removeItem('profileOptions');
+    // Don't remove profile data or QR mappings - keep them for when user logs back in
+    console.log('AuthContext: User logged out, profile data preserved');
   };
 
   return (

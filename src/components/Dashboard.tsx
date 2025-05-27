@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,53 +12,89 @@ const Dashboard = () => {
   const [profileOptions, setProfileOptions] = useState<ProfileOption[]>([]);
 
   useEffect(() => {
-    // Load profile options from localStorage
-    const saved = localStorage.getItem('profileOptions');
-    if (saved) {
-      setProfileOptions(JSON.parse(saved));
+    if (user?.id) {
+      // Load profile options specific to this user
+      const userProfileKey = `profileOptions_${user.id}`;
+      const saved = localStorage.getItem(userProfileKey);
+      console.log('Dashboard: Loading profile options for user:', user.id, 'found:', saved);
+      if (saved) {
+        const parsedOptions = JSON.parse(saved);
+        setProfileOptions(parsedOptions);
+        console.log('Dashboard: Loaded profile options:', parsedOptions);
+        
+        // Ensure the QR mapping is set up for existing active option
+        const activeOption = parsedOptions.find((option: ProfileOption) => option.isActive);
+        if (activeOption && user.qrId) {
+          storeQRMapping(user.qrId, activeOption);
+        }
+      }
     }
-  }, []);
+  }, [user]);
+
+  const storeQRMapping = (qrId: string, activeOption: ProfileOption) => {
+    console.log('Dashboard: Storing QR mapping for QR ID:', qrId, 'with active option:', activeOption);
+    
+    // Store using the clean QR ID (without qr_ prefix for global access)
+    const cleanQrId = qrId.replace(/^qr_/, '');
+    const globalKey = `qr_${cleanQrId}`;
+    
+    localStorage.setItem(globalKey, JSON.stringify(activeOption));
+    console.log('Dashboard: Stored global mapping with key:', globalKey, 'value:', activeOption);
+    
+    // Also store in qrMappings object for backup
+    let qrMappings = {};
+    try {
+      const existingMappings = localStorage.getItem('qrMappings');
+      if (existingMappings) {
+        qrMappings = JSON.parse(existingMappings);
+      }
+    } catch (error) {
+      console.error('Dashboard: Error parsing existing QR mappings:', error);
+      qrMappings = {};
+    }
+    
+    qrMappings[cleanQrId] = activeOption;
+    localStorage.setItem('qrMappings', JSON.stringify(qrMappings));
+    console.log('Dashboard: Updated qrMappings:', qrMappings);
+  };
 
   const updateProfileOptions = (options: ProfileOption[]) => {
     console.log('Dashboard: Updating profile options:', options);
     setProfileOptions(options);
-    localStorage.setItem('profileOptions', JSON.stringify(options));
     
-    // Store QR mapping for cross-device access
-    if (user?.qrId) {
-      const activeOption = options.find(option => option.isActive);
+    if (user?.id) {
+      // Store profile options specific to this user
+      const userProfileKey = `profileOptions_${user.id}`;
+      localStorage.setItem(userProfileKey, JSON.stringify(options));
+      console.log('Dashboard: Stored profile options for user:', user.id);
       
-      // Get existing mappings
-      let qrMappings = {};
-      try {
-        const existingMappings = localStorage.getItem('qrMappings');
-        if (existingMappings) {
-          qrMappings = JSON.parse(existingMappings);
+      // Store QR mapping for cross-device access
+      if (user.qrId) {
+        const activeOption = options.find(option => option.isActive);
+        
+        if (activeOption) {
+          storeQRMapping(user.qrId, activeOption);
+        } else {
+          // Remove mappings if no active option
+          const cleanQrId = user.qrId.replace(/^qr_/, '');
+          const globalKey = `qr_${cleanQrId}`;
+          localStorage.removeItem(globalKey);
+          console.log('Dashboard: Removed global mapping:', globalKey);
+          
+          let qrMappings = {};
+          try {
+            const existingMappings = localStorage.getItem('qrMappings');
+            if (existingMappings) {
+              qrMappings = JSON.parse(existingMappings);
+            }
+          } catch (error) {
+            console.error('Dashboard: Error parsing existing QR mappings:', error);
+          }
+          
+          delete qrMappings[cleanQrId];
+          localStorage.setItem('qrMappings', JSON.stringify(qrMappings));
+          console.log('Dashboard: Removed from qrMappings:', cleanQrId);
         }
-      } catch (error) {
-        console.error('Dashboard: Error parsing existing QR mappings:', error);
-        qrMappings = {};
-      }
-      
-      if (activeOption) {
-        qrMappings[user.qrId] = activeOption;
-        console.log('Dashboard: Storing QR mapping for QR ID:', user.qrId, 'with active option:', activeOption);
-      } else {
-        delete qrMappings[user.qrId];
-        console.log('Dashboard: Removing QR mapping for QR ID:', user.qrId);
-      }
-      
-      localStorage.setItem('qrMappings', JSON.stringify(qrMappings));
-      console.log('Dashboard: All QR mappings:', qrMappings);
-      
-      // Also store a global fallback mapping that doesn't require login
-      const globalKey = `qr_${user.qrId}`;
-      if (activeOption) {
-        localStorage.setItem(globalKey, JSON.stringify(activeOption));
-        console.log('Dashboard: Stored global mapping:', globalKey, activeOption);
-      } else {
-        localStorage.removeItem(globalKey);
-        console.log('Dashboard: Removed global mapping:', globalKey);
       }
     }
   };
@@ -134,7 +171,7 @@ const Dashboard = () => {
           <div className="bg-white p-6 rounded-lg shadow-sm border">
             <h3 className="text-sm font-medium text-gray-500">QR Code ID</h3>
             <p className="text-2xl font-bold text-gray-900 mt-2">
-              {user?.qrId?.slice(-6) || 'N/A'}
+              {user?.qrId?.replace(/^qr_/, '').slice(-6) || 'N/A'}
             </p>
           </div>
         </div>
