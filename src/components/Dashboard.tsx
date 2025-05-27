@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,23 +19,46 @@ const Dashboard = () => {
   }, []);
 
   const updateProfileOptions = (options: ProfileOption[]) => {
+    console.log('Dashboard: Updating profile options:', options);
     setProfileOptions(options);
     localStorage.setItem('profileOptions', JSON.stringify(options));
     
     // Store QR mapping for cross-device access
     if (user?.qrId) {
       const activeOption = options.find(option => option.isActive);
-      const qrMappings = JSON.parse(localStorage.getItem('qrMappings') || '{}');
+      
+      // Get existing mappings
+      let qrMappings = {};
+      try {
+        const existingMappings = localStorage.getItem('qrMappings');
+        if (existingMappings) {
+          qrMappings = JSON.parse(existingMappings);
+        }
+      } catch (error) {
+        console.error('Dashboard: Error parsing existing QR mappings:', error);
+        qrMappings = {};
+      }
       
       if (activeOption) {
         qrMappings[user.qrId] = activeOption;
-        console.log('Dashboard: Storing QR mapping:', user.qrId, activeOption);
+        console.log('Dashboard: Storing QR mapping for QR ID:', user.qrId, 'with active option:', activeOption);
       } else {
         delete qrMappings[user.qrId];
-        console.log('Dashboard: Removing QR mapping for:', user.qrId);
+        console.log('Dashboard: Removing QR mapping for QR ID:', user.qrId);
       }
       
       localStorage.setItem('qrMappings', JSON.stringify(qrMappings));
+      console.log('Dashboard: All QR mappings:', qrMappings);
+      
+      // Also store a global fallback mapping that doesn't require login
+      const globalKey = `qr_${user.qrId}`;
+      if (activeOption) {
+        localStorage.setItem(globalKey, JSON.stringify(activeOption));
+        console.log('Dashboard: Stored global mapping:', globalKey, activeOption);
+      } else {
+        localStorage.removeItem(globalKey);
+        console.log('Dashboard: Removed global mapping:', globalKey);
+      }
     }
   };
 

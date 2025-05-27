@@ -15,29 +15,39 @@ const RedirectPage = () => {
     
     const checkForRedirect = () => {
       try {
-        // For demo purposes, we'll use localStorage to store QR mappings
-        // In production, this would be a backend API call that maps QR IDs to active profiles
-        
-        // Check if there's a mapping of QR IDs to profiles
-        const qrMappings = localStorage.getItem('qrMappings');
         let foundActiveOption = null;
         
-        if (qrMappings) {
+        // Method 1: Check global QR mapping (most reliable for cross-device)
+        const globalKey = `qr_${qrId}`;
+        const globalMapping = localStorage.getItem(globalKey);
+        if (globalMapping) {
           try {
-            const mappings = JSON.parse(qrMappings);
-            console.log('RedirectPage: Found QR mappings:', mappings);
-            
-            // Look for this specific QR ID in the mappings
-            if (mappings[qrId!]) {
-              foundActiveOption = mappings[qrId!];
-              console.log('RedirectPage: Found mapped profile for QR ID:', foundActiveOption);
-            }
+            foundActiveOption = JSON.parse(globalMapping);
+            console.log('RedirectPage: Found global QR mapping:', foundActiveOption);
           } catch (parseError) {
-            console.error('RedirectPage: Error parsing QR mappings:', parseError);
+            console.error('RedirectPage: Error parsing global mapping:', parseError);
           }
         }
         
-        // Fallback: check the general profile options (for backward compatibility)
+        // Method 2: Check QR mappings object
+        if (!foundActiveOption) {
+          const qrMappings = localStorage.getItem('qrMappings');
+          if (qrMappings) {
+            try {
+              const mappings = JSON.parse(qrMappings);
+              console.log('RedirectPage: Found QR mappings:', mappings);
+              
+              if (mappings[qrId!]) {
+                foundActiveOption = mappings[qrId!];
+                console.log('RedirectPage: Found mapped profile for QR ID:', foundActiveOption);
+              }
+            } catch (parseError) {
+              console.error('RedirectPage: Error parsing QR mappings:', parseError);
+            }
+          }
+        }
+        
+        // Method 3: Fallback to general profile options (backward compatibility)
         if (!foundActiveOption) {
           const savedProfiles = localStorage.getItem('profileOptions');
           if (savedProfiles) {
@@ -70,6 +80,7 @@ const RedirectPage = () => {
         }
         
         console.log('RedirectPage: No active profile found for QR ID:', qrId);
+        console.log('RedirectPage: Available localStorage keys:', Object.keys(localStorage));
         setIsRedirecting(false);
         
       } catch (error) {
