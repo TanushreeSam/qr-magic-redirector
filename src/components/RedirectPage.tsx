@@ -27,12 +27,12 @@ const RedirectPage = () => {
         // Clean the QR ID (remove qr_ prefix if present)
         const cleanQrId = qrId.replace(/^qr_/, '');
         
-        // Fetch the active mapping from Supabase
+        // Fetch the active mapping from Supabase using maybeSingle() instead of single()
         const { data: mapping, error } = await supabase
           .from('qr_mappings')
           .select('*')
           .eq('qr_id', cleanQrId)
-          .single();
+          .maybeSingle();
 
         if (error) {
           console.error('RedirectPage: Error fetching QR mapping:', error);
