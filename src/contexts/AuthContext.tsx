@@ -16,6 +16,13 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// UUID validation regex pattern
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const isValidUUID = (uuid: string): boolean => {
+  return UUID_PATTERN.test(uuid);
+};
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
@@ -27,7 +34,20 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('user');
-    return saved ? JSON.parse(saved) : null;
+    if (saved) {
+      try {
+        const parsedUser = JSON.parse(saved);
+        // Validate both id and qrId are valid UUIDs
+        if (isValidUUID(parsedUser.id) && isValidUUID(parsedUser.qrId)) {
+          return parsedUser;
+        }
+        // If validation fails, clear localStorage
+        localStorage.removeItem('user');
+      } catch (e) {
+        localStorage.removeItem('user');
+      }
+    }
+    return null;
   });
 
   const login = async (email: string, password: string): Promise<boolean> => {
