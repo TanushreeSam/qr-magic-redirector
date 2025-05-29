@@ -27,7 +27,8 @@ const Dashboard = () => {
       const { data, error } = await supabase
         .from('qr_mappings')
         .select('*')
-        .eq('qr_id', user.qrId.replace(/^qr_/, ''));
+        .eq('qr_id', user.qrId.replace(/^qr_/, ''))
+        .eq('user_id', user.id);
 
       if (error) {
         console.error('Dashboard: Error loading profile options:', error);
@@ -54,8 +55,8 @@ const Dashboard = () => {
     try {
       console.log('Dashboard: Updating profile options:', options);
       
-      if (!user?.qrId) {
-        console.error('Dashboard: No QR ID available');
+      if (!user?.qrId || !user?.id) {
+        console.error('Dashboard: No QR ID or user ID available');
         return;
       }
 
@@ -65,7 +66,8 @@ const Dashboard = () => {
       const { error: deleteError } = await supabase
         .from('qr_mappings')
         .delete()
-        .eq('qr_id', cleanQrId);
+        .eq('qr_id', cleanQrId)
+        .eq('user_id', user.id);
 
       if (deleteError) {
         console.error('Dashboard: Error deleting existing mapping:', deleteError);
@@ -81,7 +83,8 @@ const Dashboard = () => {
             qr_id: cleanQrId,
             type: activeOption.type,
             label: activeOption.label,
-            value: activeOption.value
+            value: activeOption.value,
+            user_id: user.id
           });
 
         if (insertError) {

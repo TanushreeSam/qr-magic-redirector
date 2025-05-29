@@ -1,5 +1,11 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { User } from '@/types/profile';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
 
 interface AuthContextType {
   user: User | null;
@@ -25,61 +31,79 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   });
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    // Simple demo authentication - in real app, this would be handled by backend
-    if (password.length >= 6) {
-      // Check if user already exists
-      const existingUserKey = `user_${email}`;
-      const existingUser = localStorage.getItem(existingUserKey);
-      
-      let newUser: User;
-      if (existingUser) {
-        // Use existing user data
-        newUser = JSON.parse(existingUser);
-        console.log('AuthContext: Login - Found existing user:', newUser);
-      } else {
-        // Create new user
-        newUser = {
-          id: Date.now().toString(),
-          email,
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (authError) {
+        console.error('AuthContext: Login error:', authError);
+        return false;
+      }
+
+      if (authData.user) {
+        const newUser: User = {
+          id: authData.user.id,
+          email: authData.user.email!,
           qrId: `qr_${Date.now()}`
         };
-        localStorage.setItem(existingUserKey, JSON.stringify(newUser));
-        console.log('AuthContext: Login - Created new user:', newUser);
+        
+        setUser(newUser);
+        localStorage.setItem('user', JSON.stringify(newUser));
+        return true;
       }
       
-      setUser(newUser);
-      localStorage.setItem('user', JSON.stringify(newUser));
-      return true;
+      return false;
+    } catch (error) {
+      console.error('AuthContext: Login error:', error);
+      return false;
     }
-    return false;
   };
 
   const signup = async (email: string, password: string): Promise<boolean> => {
-    // Simple demo signup - in real app, this would be handled by backend
-    if (password.length >= 6 && email.includes('@')) {
-      const newUser: User = {
-        id: Date.now().toString(),
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
-        qrId: `qr_${Date.now()}`
-      };
-      
-      // Store user data permanently
-      const userKey = `user_${email}`;
-      localStorage.setItem(userKey, JSON.stringify(newUser));
-      
-      setUser(newUser);
-      localStorage.setItem('user', JSON.stringify(newUser));
-      console.log('AuthContext: Signup - Created user:', newUser);
-      return true;
+        password
+      });
+
+      if (authError) {
+        console.error('AuthContext: Signup error:', authError);
+        return false;
+      }
+
+      if (authData.user) {
+        const newUser: User = {
+          id: authData.user.id,
+          email: authData.user.email!,
+          qrId: `qr_${Date.now()}`
+        };
+        
+        setUser(newUser);
+        localStorage.setItem('user', JSON.stringify(newUser));
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('AuthContext: Signup error:', error);
+      return false;
     }
-    return false;
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('user');
-    // Don't remove profile data or QR mappings - keep them for when user logs back in
-    console.log('AuthContext: User logged out, profile data preserved');
+  const logout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('AuthContext: Logout error:', error);
+      }
+      
+      setUser(null);
+      localStorage.removeItem('user');
+    } catch (error) {
+      console.error('AuthContext: Logout error:', error);
+    }
   };
 
   return (
