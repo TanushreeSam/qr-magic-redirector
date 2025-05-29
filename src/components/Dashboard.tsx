@@ -27,7 +27,7 @@ const Dashboard = () => {
       const { data, error } = await supabase
         .from('qr_mappings')
         .select('*')
-        .eq('qr_id', user.qrId.replace(/^qr_/, ''))
+        .eq('qr_id', user.qrId)
         .eq('user_id', user.id);
 
       if (error) {
@@ -59,14 +59,12 @@ const Dashboard = () => {
         console.error('Dashboard: No QR ID or user ID available');
         return;
       }
-
-      const cleanQrId = user.qrId.replace(/^qr_/, '');
       
       // First, remove existing mapping
       const { error: deleteError } = await supabase
         .from('qr_mappings')
         .delete()
-        .eq('qr_id', cleanQrId)
+        .eq('qr_id', user.qrId)
         .eq('user_id', user.id);
 
       if (deleteError) {
@@ -80,7 +78,7 @@ const Dashboard = () => {
         const { error: insertError } = await supabase
           .from('qr_mappings')
           .insert({
-            qr_id: cleanQrId,
+            qr_id: user.qrId,
             type: activeOption.type,
             label: activeOption.label,
             value: activeOption.value,
@@ -172,7 +170,7 @@ const Dashboard = () => {
           <div className="bg-white p-6 rounded-lg shadow-sm border">
             <h3 className="text-sm font-medium text-gray-500">QR Code ID</h3>
             <p className="text-2xl font-bold text-gray-900 mt-2">
-              {user?.qrId?.replace(/^qr_/, '').slice(-6) || 'N/A'}
+              {user?.qrId?.slice(-6) || 'N/A'}
             </p>
           </div>
         </div>

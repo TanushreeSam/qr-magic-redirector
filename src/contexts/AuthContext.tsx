@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const newUser: User = {
           id: authData.user.id,
           email: authData.user.email!,
-          qrId: `qr_${Date.now()}`
+          qrId: crypto.randomUUID()
         };
         
         setUser(newUser);
@@ -77,7 +77,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const newUser: User = {
           id: authData.user.id,
           email: authData.user.email!,
-          qrId: `qr_${Date.now()}`
+          qrId: crypto.randomUUID()
         };
         
         setUser(newUser);
